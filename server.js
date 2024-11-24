@@ -13,6 +13,7 @@ const auctionsRoute = require("./routes/auctionRoute");
 const projectsRoute = require("./routes/projectRoute");
 const pricesRoute = require("./routes/priceRoute");
 const contactsRoute = require("./routes/contactRoute");
+const bannerRoute = require("./routes/bannerRoute");
 
 // connect with db
 dbConnection();
@@ -41,6 +42,7 @@ app.use("/api/v1/auctions", auctionsRoute);
 app.use("/api/v1/projects", projectsRoute);
 app.use("/api/v1/prices", pricesRoute);
 app.use("/api/v1/contacts", contactsRoute);
+app.use("/api/v1/banners", bannerRoute);
 
 // handle all other routes
 app.all("*", (req, res, next) => {
