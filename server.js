@@ -37,6 +37,10 @@ if (process.env.NODE_ENV === "development") {
   console.log(`mode: ${process.env.NODE_ENV}`);
 }
 
+app.get("/", (req, res) => {
+  res.send("Welcome to Courses Platform");
+});
+
 // mount routes
 app.use("/api/v1/auctions", auctionsRoute);
 app.use("/api/v1/projects", projectsRoute);
