@@ -1,5 +1,8 @@
 // controllers/projectController.js
 const fs = require("fs");
+const util = require("util");
+
+const writeFile = util.promisify(fs.writeFile);
 const asyncHandler = require("express-async-handler");
 const sharp = require("sharp");
 const { v4: uuidv4 } = require("uuid");
@@ -9,6 +12,15 @@ const ApiError = require("../utils/ApiError");
 const Project = require("../models/projectModel");
 const { uploadMixOfImages } = require("../middlewares/uploadImageMiddleware");
 
+// Allowed file types
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+];
+const ALLOWED_FILE_TYPES = [...ALLOWED_IMAGE_TYPES, "application/pdf"];
+
 // upload multiple images
 exports.uploadProjectImage = uploadMixOfImages([
   { name: "imageCover", maxCount: 1 },
@@ -16,55 +28,95 @@ exports.uploadProjectImage = uploadMixOfImages([
   { name: "images", maxCount: 5 },
 ]);
 
-// image processing
+// Helper function to process non-GIF images
+const processNonGifImage = async (buffer, format) =>
+  sharp(buffer).toFormat(format).toBuffer();
+
+// Helper function to save file
+const saveFile = (buffer, filepath) => writeFile(filepath, buffer);
+
+// Helper function to validate file type
+const validateFileType = (mimetype, allowedTypes) => {
+  if (!allowedTypes.includes(mimetype)) {
+    throw new ApiError(
+      400,
+      `Invalid file type. Allowed types are: ${allowedTypes.join(", ")}`
+    );
+  }
+  return true;
+};
+
+// Helper function to handle file saving
+const handleFileUpload = async (file, folder) => {
+  validateFileType(file.mimetype, ALLOWED_FILE_TYPES);
+
+  const isImage = ALLOWED_IMAGE_TYPES.includes(file.mimetype);
+  const isPDF = file.mimetype === "application/pdf";
+
+  let fileExtension = "";
+
+  if (isPDF) {
+    fileExtension = "pdf";
+  } else if (isImage) {
+    const mimeType = file.mimetype.split("/")[1];
+    fileExtension = mimeType === "jpeg" ? "jpg" : mimeType;
+  }
+
+  const fileName = `project-${uuidv4()}-${Date.now()}.${fileExtension}`;
+  const outputPath = `uploads/${folder}/${fileName}`;
+
+  if (isPDF) {
+    // Save PDF directly
+    await saveFile(file.buffer, outputPath);
+  } else if (isImage) {
+    // Handle image processing
+    const metadata = await sharp(file.buffer).metadata();
+    const originalFormat = metadata.format;
+
+    if (originalFormat === "gif") {
+      // Save GIF directly without processing
+      await saveFile(file.buffer, outputPath);
+    } else {
+      // Process non-GIF images
+      const processedBuffer = await processNonGifImage(
+        file.buffer,
+        originalFormat || "jpeg"
+      );
+      await saveFile(processedBuffer, outputPath);
+    }
+  }
+
+  return fileName;
+};
+
 exports.resizeImages = asyncHandler(async (req, res, next) => {
   // image processing for imageCover
   if (req.files.imageCover) {
-    const imageBuffer = req.files.imageCover[0].buffer;
-    const metadata = await sharp(imageBuffer).metadata();
-    const imageFormat = metadata.format || "png";
-    const imageCoverfieldName = `project-${uuidv4()}-${Date.now()}-imageCover.${imageFormat}`;
-
-    await sharp(imageBuffer)
-      .toFormat(imageFormat)
-      .toFile(`uploads/projects/${imageCoverfieldName}`);
-
-    req.body.imageCover = imageCoverfieldName;
+    const file = req.files.imageCover[0];
+    validateFileType(file.mimetype, ALLOWED_IMAGE_TYPES);
+    req.body.imageCover = await handleFileUpload(file, "projects");
   }
 
   // image processing for images
   if (req.files.images) {
     req.body.images = [];
     await Promise.all(
-      req.files.images.map(async (image, index) => {
-        // Get image format using sharp metadata
-        const metadata = await sharp(image.buffer).metadata();
-        const imageFormat = metadata.format || "jpeg"; // Default to 'jpeg' if format is not determined
-
-        const imageName = `project-${uuidv4()}-${Date.now()}-image-${index + 1}.${imageFormat}`;
-
-        await sharp(image.buffer)
-          .toFormat(imageFormat)
-          .toFile(`uploads/projects/${imageName}`);
-
-        req.body.images.push(imageName);
+      req.files.images.map(async (image) => {
+        validateFileType(image.mimetype, ALLOWED_IMAGE_TYPES);
+        const fileName = await handleFileUpload(image, "projects");
+        req.body.images.push(fileName);
       })
     );
   }
 
-  // Handling PDF file
+  // Handling file (image or PDF)
   if (req.files.file) {
-    const pdfFileName = `project-${uuidv4()}-${Date.now()}.pdf`;
-    const pdfBuffer = req.files.file[0].buffer;
-
-    // Save PDF file directly
-    fs.writeFileSync(`uploads/projects/${pdfFileName}`, pdfBuffer);
-    req.body.file = pdfFileName;
+    const file = req.files.file[0];
+    req.body.file = await handleFileUpload(file, "projects");
   }
 
   next();
 });
-
 // @desc    Get list of projects
 // @route   GET /api/v1/projects
 // @access  Public

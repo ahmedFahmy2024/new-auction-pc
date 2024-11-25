@@ -1,3 +1,4 @@
+// uploadImageMiddleware.js file
 const multer = require("multer");
 const ApiError = require("../utils/ApiError");
 

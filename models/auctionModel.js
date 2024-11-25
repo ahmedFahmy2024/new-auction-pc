@@ -89,6 +89,7 @@ const auctionSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    minIncrese: String,
   },
   {
     timestamps: true,
