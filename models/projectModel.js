@@ -50,6 +50,10 @@ const projectSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    playButton: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

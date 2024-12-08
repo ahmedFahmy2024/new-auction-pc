@@ -276,3 +276,28 @@ exports.toggleProjectPublication = asyncHandler(async (req, res, next) => {
     data: project,
   });
 });
+
+exports.PlayButton = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  // Find the Project first
+  const project = await Project.findById(id);
+
+  if (!project) {
+    return next(new ApiError(`No project with id: ${id}`, 404));
+  }
+
+  const updatePlay = await Project.findByIdAndUpdate(
+    id,
+    { playButton: !project.playButton },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  res.status(200).json({
+    success: true,
+    data: updatePlay,
+  });
+});

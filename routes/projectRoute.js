@@ -10,6 +10,7 @@ const {
   resizeImages,
   updateProjectStatus,
   toggleProjectPublication,
+  PlayButton,
 } = require("../controllers/projectController");
 const auctionsRoute = require("./auctionRoute");
 
@@ -29,5 +30,6 @@ router
 
 router.patch("/:id/status", updateProjectStatus);
 router.patch("/:id/toggle-publish", toggleProjectPublication);
+router.patch("/:id/play", PlayButton);
 
 module.exports = router;

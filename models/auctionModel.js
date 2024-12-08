@@ -8,6 +8,7 @@ const auctionSchema = new mongoose.Schema(
       required: [true, "Auction name is required"],
       trim: true,
     },
+    itemImg: String,
     logoOne: String,
     logoSecond: String,
     logoThird: String,
@@ -90,6 +91,7 @@ const auctionSchema = new mongoose.Schema(
       default: true,
     },
     minIncrese: String,
+    itemName: String,
   },
   {
     timestamps: true,
@@ -118,6 +120,11 @@ const setImageURL = (doc) => {
   if (doc.imageCover && !isFullUrl(doc.imageCover)) {
     const imageURL = `${process.env.BASE_URL}/auctions/${doc.imageCover}`;
     doc.imageCover = imageURL;
+  }
+
+  if (doc.itemImg && !isFullUrl(doc.itemImg)) {
+    const imageURL = `${process.env.BASE_URL}/auctions/${doc.itemImg}`;
+    doc.itemImg = imageURL;
   }
 
   if (doc.bgImage && !isFullUrl(doc.bgImage)) {

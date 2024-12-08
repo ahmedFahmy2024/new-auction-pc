@@ -1,4 +1,6 @@
 // controllers/projectController.js
+const fs = require("fs");
+
 const asyncHandler = require("express-async-handler");
 const sharp = require("sharp");
 const { v4: uuidv4 } = require("uuid");
@@ -14,6 +16,7 @@ exports.uploadAuctionImage = uploadMixOfImages([
   { name: "logoSecond", maxCount: 1 },
   { name: "logoThird", maxCount: 1 },
   { name: "imageCover", maxCount: 1 },
+  { name: "itemImg", maxCount: 1 },
   { name: "bgImage", maxCount: 1 },
   { name: "images", maxCount: 5 },
 ]);
@@ -59,6 +62,19 @@ exports.resizeImages = asyncHandler(async (req, res, next) => {
     req.body.logoThird = logoThirdfieldName;
   }
 
+  if (req.files.itemImg) {
+    const imageBuffer = req.files.itemImg[0].buffer;
+    const metadata = await sharp(imageBuffer).metadata();
+    const imageFormat = metadata.format || "png";
+    const itemImgfieldName = `auction-${uuidv4()}-${Date.now()}-itemImg.${imageFormat}`;
+
+    await sharp(imageBuffer)
+      .toFormat(imageFormat)
+      .toFile(`uploads/auctions/${itemImgfieldName}`);
+
+    req.body.itemImg = itemImgfieldName;
+  }
+
   if (req.files.imageCover) {
     const imageBuffer = req.files.imageCover[0].buffer;
     const metadata = await sharp(imageBuffer).metadata();
@@ -76,13 +92,26 @@ exports.resizeImages = asyncHandler(async (req, res, next) => {
     const imageBuffer = req.files.bgImage[0].buffer;
     const metadata = await sharp(imageBuffer).metadata();
     const imageFormat = metadata.format || "png";
-    const bgImagefieldName = `auction-${uuidv4()}-${Date.now()}-bgImage.${imageFormat}`;
 
-    await sharp(imageBuffer)
-      .toFormat(imageFormat)
-      .toFile(`uploads/auctions/${bgImagefieldName}`);
+    // Special handling for GIF images
+    if (imageFormat === "gif") {
+      // Generate filename for GIF
+      const bgImagefieldName = `auction-${uuidv4()}-${Date.now()}-bgImage.gif`;
 
-    req.body.bgImage = bgImagefieldName;
+      // For GIFs, save the original file without processing
+      fs.writeFileSync(`uploads/auctions/${bgImagefieldName}`, imageBuffer);
+
+      req.body.bgImage = bgImagefieldName;
+    } else {
+      // Existing processing for non-GIF images
+      const bgImagefieldName = `auction-${uuidv4()}-${Date.now()}-bgImage.${imageFormat}`;
+
+      await sharp(imageBuffer)
+        .toFormat(imageFormat)
+        .toFile(`uploads/auctions/${bgImagefieldName}`);
+
+      req.body.bgImage = bgImagefieldName;
+    }
   }
 
   if (req.files.images) {
